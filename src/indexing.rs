@@ -10,9 +10,10 @@
 
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::default::Default;
 use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasherDefault, Hash, Hasher};
 
 use super::{Symbol, SymbolId, Table};
 
@@ -203,28 +204,28 @@ pub trait Indexing: Default {
 
 /// HashMap-backed table indexing.
 #[derive(Debug)]
-pub struct HashIndexing<T, D> where T: Eq + Hash, D: SymbolId {
+pub struct HashIndexing<T, D, H=DefaultHasher> where T: Eq + Hash, D: SymbolId, H: Hasher + Default {
     table: Table<T, D>,
-    by_symbol: HashMap<Ref<T>, Ref<Symbol<T, D>>>,
+    by_symbol: HashMap<Ref<T>, Ref<Symbol<T, D>>, BuildHasherDefault<H>>,
     by_id: Vec<Ref<Symbol<T, D>>>,
 }
 
-impl<T, D> Default for HashIndexing<T, D> where T: Eq + Hash, D: SymbolId {
+impl<T, D, H> Default for HashIndexing<T, D, H> where T: Eq + Hash, D: SymbolId, H: Hasher + Default {
     fn default() -> Self {
         HashIndexing {
             table: Table::new(),
-            by_symbol: HashMap::new(),
+            by_symbol: HashMap::default(),
             by_id: Vec::new(),
         }
     }
 }
 
-impl<T, D> Indexing for HashIndexing<T, D> where T: Eq + Hash, D: SymbolId {
+impl<T, D, H> Indexing for HashIndexing<T, D, H> where T: Eq + Hash, D: SymbolId, H: Hasher + Default {
     type Data = T;
     type Id = D;
 
     fn from_table(table: Table<T, D>) -> Self {
-        let mut by_symbol = HashMap::with_capacity(table.len());
+        let mut by_symbol = HashMap::with_capacity_and_hasher(table.len(), BuildHasherDefault::default());
         let mut by_id =
             match table.iter().next() {
                 Some(symbol) => vec![Ref::new(symbol); table.len()],
